@@ -1,0 +1,50 @@
+@model IEnumerable<InsuranceComparisonService.Models.Vehicle>
+@{ ViewData["Title"] = "Моите превозни средства"; }
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-car-front text-primary"></i> Моите превозни средства</h2>
+    <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-circle"></i> Добави МПС</a>
+</div>
+
+@if (TempData["Success"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show">@TempData["Success"]<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+}
+
+@if (!Model.Any())
+{
+    <div class="alert alert-info"><i class="bi bi-info-circle"></i> Нямаш добавени превозни средства. <a asp-action="Create" class="alert-link">Добави сега</a></div>
+}
+else
+{
+    <div class="row">
+        @foreach (var v in Model)
+        {
+            var fuelName = (v.FuelType == InsuranceComparisonService.Models.FuelType.Diesel) ? "Дизел" : (v.FuelType == InsuranceComparisonService.Models.FuelType.Electric) ? "Електро" : (v.FuelType == InsuranceComparisonService.Models.FuelType.Hybrid) ? "Хибрид" : "Бензин";
+            var catName  = (v.Category == InsuranceComparisonService.Models.VehicleCategory.Motorcycle) ? "Мотоциклет" : (v.Category == InsuranceComparisonService.Models.VehicleCategory.Truck) ? "Камион" : (v.Category == InsuranceComparisonService.Models.VehicleCategory.Bus) ? "Автобус" : "Лек автомобил";
+            <div class="col-md-4 mb-3">
+                <div class="card shadow-sm h-100">
+                    <div class="card-header bg-primary text-white"><i class="bi bi-car-front"></i> <strong>@v.Make @v.Model</strong></div>
+                    <div class="card-body">
+                        <dl class="row mb-0">
+                            <dt class="col-6">Рег. номер</dt><dd class="col-6"><span class="badge bg-dark">@v.PlateNumber</span></dd>
+                            <dt class="col-6">Година</dt><dd class="col-6">@v.Year</dd>
+                            <dt class="col-6">Мощност</dt><dd class="col-6">@v.HorsePower к.с.</dd>
+                            <dt class="col-6">Гориво</dt><dd class="col-6">@fuelName</dd>
+                            <dt class="col-6">Категория</dt><dd class="col-6">@catName</dd>
+                        </dl>
+                    </div>
+                    <div class="card-footer d-flex gap-2">
+                        <a asp-action="Edit" asp-route-id="@v.Id" class="btn btn-sm btn-warning flex-fill"><i class="bi bi-pencil"></i> Редактирай</a>
+                        <form asp-action="Delete" method="post" class="d-inline">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="id" value="@v.Id" />
+                            <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Сигурен ли си?')"><i class="bi bi-trash"></i></button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+<div class="mt-3"><a asp-controller="Account" asp-action="Profile" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Обратно към профила</a></div>

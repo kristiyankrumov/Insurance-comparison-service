@@ -1,0 +1,90 @@
+@model (InsuranceComparisonService.Models.InsuranceOffer, InsuranceComparisonService.Models.InsuranceOffer)
+@{
+    ViewData["Title"] = "Сравнение на оферти";
+    var offer1 = Model.Item1;
+    var offer2 = Model.Item2;
+}
+
+@{
+    string GetTypeName(InsuranceComparisonService.Models.InsuranceType t)
+    {
+        if (t == InsuranceComparisonService.Models.InsuranceType.Kasko)    return "Каско";
+        if (t == InsuranceComparisonService.Models.InsuranceType.Health)   return "Здравна";
+        if (t == InsuranceComparisonService.Models.InsuranceType.Civil)    return "Гражданска отговорност";
+        if (t == InsuranceComparisonService.Models.InsuranceType.Property) return "Имуществена";
+        return t.ToString();
+    }
+    var type1Name = GetTypeName(offer1.Type);
+    var type2Name = GetTypeName(offer2.Type);
+}
+
+<h2 class="mb-4"><i class="bi bi-bar-chart text-primary"></i> Сравнение на оферти</h2>
+
+<div class="table-responsive">
+    <table class="table table-bordered table-hover shadow-sm">
+        <thead class="table-primary">
+            <tr>
+                <th width="30%">Параметър</th>
+                <th class="text-center">@offer1.Title</th>
+                <th class="text-center">@offer2.Title</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td class="fw-bold">Компания</td>
+                <td class="text-center">@offer1.Company?.Name</td>
+                <td class="text-center">@offer2.Company?.Name</td>
+            </tr>
+            <tr>
+                <td class="fw-bold">Вид застраховка</td>
+                <td class="text-center">@type1Name</td>
+                <td class="text-center">@type2Name</td>
+            </tr>
+            <tr>
+                <td class="fw-bold">Годишна премия</td>
+                <td class="text-center @(offer1.Price < offer2.Price ? "table-success fw-bold" : "")">@offer1.Price лв.</td>
+                <td class="text-center @(offer2.Price < offer1.Price ? "table-success fw-bold" : "")">@offer2.Price лв.</td>
+            </tr>
+            <tr>
+                <td class="fw-bold">Месечна вноска</td>
+                <td class="text-center">@(Math.Round(offer1.Price / 12, 2)) лв.</td>
+                <td class="text-center">@(Math.Round(offer2.Price / 12, 2)) лв.</td>
+            </tr>
+            <tr>
+                <td class="fw-bold">Покритие</td>
+                <td class="text-center">@offer1.Coverage</td>
+                <td class="text-center">@offer2.Coverage</td>
+            </tr>
+            <tr>
+                <td class="fw-bold">Условия</td>
+                <td class="text-center">@offer1.Conditions</td>
+                <td class="text-center">@offer2.Conditions</td>
+            </tr>
+            <tr>
+                <td class="fw-bold">Описание</td>
+                <td class="text-center">@offer1.Description</td>
+                <td class="text-center">@offer2.Description</td>
+            </tr>
+            <tr>
+                <td class="fw-bold">Действие</td>
+                <td class="text-center">
+                    <a asp-controller="Insurance" asp-action="Details" asp-route-id="@offer1.Id" class="btn btn-sm btn-primary">Виж детайли</a>
+                    <a asp-controller="Policy" asp-action="Buy" asp-route-id="@offer1.Id" class="btn btn-sm btn-success ms-1">Купи</a>
+                </td>
+                <td class="text-center">
+                    <a asp-controller="Insurance" asp-action="Details" asp-route-id="@offer2.Id" class="btn btn-sm btn-primary">Виж детайли</a>
+                    <a asp-controller="Policy" asp-action="Buy" asp-route-id="@offer2.Id" class="btn btn-sm btn-success ms-1">Купи</a>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="alert alert-info mt-3">
+    <i class="bi bi-info-circle"></i>
+    Клетките в <span class="badge bg-success">зелено</span> показват по-изгодната оферта по дадения параметър.
+</div>
+
+<a asp-controller="Home" asp-action="Index" class="btn btn-outline-secondary mt-2">
+    <i class="bi bi-arrow-left"></i> Обратно
+</a>

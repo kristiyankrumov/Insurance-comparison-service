@@ -1,0 +1,50 @@
+@model IEnumerable<InsuranceComparisonService.Models.InsuranceOffer>
+@{
+    ViewData["Title"] = "Начало";
+}
+
+<div class="py-5 bg-primary text-white rounded mb-5 text-center">
+    <h1 class="display-5 fw-bold"><i class="bi bi-shield-check"></i> Сравни застраховките си</h1>
+    <p class="lead">Намери най-добрата оферта за Каско, ГО, Здравна и Имуществена застраховка</p>
+    <div class="d-flex justify-content-center flex-wrap gap-2 mt-3">
+        <a asp-controller="Insurance" asp-action="Kasko" class="btn btn-light btn-lg"><i class="bi bi-car-front"></i> Каско</a>
+        <a asp-controller="Insurance" asp-action="Civil" class="btn btn-outline-light btn-lg"><i class="bi bi-file-earmark-text"></i> Гражданска</a>
+        <a asp-controller="Insurance" asp-action="Health" class="btn btn-outline-light btn-lg"><i class="bi bi-heart-pulse"></i> Здравна</a>
+        <a asp-controller="Insurance" asp-action="Property" class="btn btn-outline-light btn-lg"><i class="bi bi-house"></i> Имуществена</a>
+    </div>
+</div>
+
+<div class="row text-center mb-5">
+    <div class="col-md-4"><div class="p-3"><i class="bi bi-search display-4 text-primary"></i><h5 class="mt-2 fw-bold">Търси</h5><p class="text-muted">Разгледай всички налични застрахователни оферти от водещи компании</p></div></div>
+    <div class="col-md-4"><div class="p-3"><i class="bi bi-bar-chart display-4 text-primary"></i><h5 class="mt-2 fw-bold">Сравни</h5><p class="text-muted">Сравни две оферти едновременно по всички параметри</p></div></div>
+    <div class="col-md-4"><div class="p-3"><i class="bi bi-shield-check display-4 text-primary"></i><h5 class="mt-2 fw-bold">Закупи</h5><p class="text-muted">Закупи застраховка с персонализирана цена спрямо твоите данни</p></div></div>
+</div>
+
+<h4 class="mb-3 fw-bold">Последни оферти</h4>
+<div class="row">
+    @foreach (var offer in Model.Take(4))
+    {
+        string typeName = (offer.Type == InsuranceComparisonService.Models.InsuranceType.Kasko) ? "Каско" : (offer.Type == InsuranceComparisonService.Models.InsuranceType.Health) ? "Здравна" : (offer.Type == InsuranceComparisonService.Models.InsuranceType.Civil) ? "Гражданска отговорност" : "Имуществена";
+        string typeBadge = (offer.Type == InsuranceComparisonService.Models.InsuranceType.Kasko) ? "bg-primary" : (offer.Type == InsuranceComparisonService.Models.InsuranceType.Health) ? "bg-danger" : (offer.Type == InsuranceComparisonService.Models.InsuranceType.Civil) ? "bg-warning text-dark" : "bg-success";
+        <div class="col-md-3 mb-3">
+            <div class="card h-100 shadow-sm">
+                <div class="card-header @typeBadge">
+                    <i class="bi bi-shield"></i> @typeName
+                </div>
+                <div class="card-body">
+                    <h6 class="card-title fw-bold">@offer.Title</h6>
+                    <p class="text-muted small">@offer.Company?.Name</p>
+                    <p class="fw-bold fs-5 mb-1">@offer.Price лв./год.</p>
+                    <p class="card-text small text-muted">@offer.Description</p>
+                </div>
+                <div class="card-footer d-flex gap-1">
+                    <a asp-controller="Insurance" asp-action="Details" asp-route-id="@offer.Id" class="btn btn-sm btn-outline-primary flex-fill">Детайли</a>
+                    @if (User.Identity != null && User.Identity.IsAuthenticated)
+                    {
+                        <a asp-controller="Policy" asp-action="Buy" asp-route-id="@offer.Id" class="btn btn-sm btn-success flex-fill">Купи</a>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+</div>

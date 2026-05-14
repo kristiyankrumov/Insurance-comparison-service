@@ -1,0 +1,47 @@
+@{
+    ViewData["Title"] = "Регистрация";
+}
+
+<div class="row justify-content-center">
+    <div class="col-md-5">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white text-center">
+                <h4><i class="bi bi-person-plus"></i> Регистрация</h4>
+            </div>
+            <div class="card-body p-4">
+                @if (!ViewData.ModelState.IsValid)
+                {
+                    <div class="alert alert-danger">
+                        @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+                        { <div>@error.ErrorMessage</div> }
+                    </div>
+                }
+                <form asp-action="Register" method="post">
+                    @Html.AntiForgeryToken()
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Име</label>
+                        <input type="text" name="firstName" class="form-control" required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Фамилия</label>
+                        <input type="text" name="lastName" class="form-control" required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Имейл</label>
+                        <input type="email" name="email" class="form-control" required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Парола</label>
+                        <input type="password" name="password" class="form-control" required minlength="6" />
+                        <small class="text-muted">Минимум 6 символа, поне една цифра</small>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100 mt-2">Регистрирай се</button>
+                </form>
+                <hr />
+                <p class="text-center mb-0">
+                    Вече имаш акаунт? <a asp-action="Login">Влез тук</a>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>

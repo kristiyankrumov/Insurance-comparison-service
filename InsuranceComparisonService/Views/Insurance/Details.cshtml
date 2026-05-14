@@ -1,0 +1,168 @@
+@model InsuranceComparisonService.Models.InsuranceOffer
+@{
+    ViewData["Title"] = Model.Title;
+    decimal? personalisedPrice = ViewBag.PersonalisedPrice;
+
+    string typeName;
+    string typeAction;
+    if (Model.Type == InsuranceComparisonService.Models.InsuranceType.Kasko)
+    { typeName = "Каско"; typeAction = "Kasko"; }
+    else if (Model.Type == InsuranceComparisonService.Models.InsuranceType.Health)
+    { typeName = "Здравна"; typeAction = "Health"; }
+    else if (Model.Type == InsuranceComparisonService.Models.InsuranceType.Civil)
+    { typeName = "Гражданска отговорност"; typeAction = "Civil"; }
+    else
+    { typeName = "Имуществена"; typeAction = "Property"; }
+}
+
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-controller="Home" asp-action="Index">Начало</a></li>
+        <li class="breadcrumb-item">
+            <a asp-controller="Insurance" asp-action="@typeAction">@typeName</a>
+        </li>
+        <li class="breadcrumb-item active">@Model.Title</li>
+    </ol>
+</nav>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">@Model.Title</h4>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-6">
+                        <p class="text-muted mb-1">Компания</p>
+                        <p class="fw-bold">@Model.Company?.Name</p>
+                    </div>
+                    <div class="col-6">
+                        <p class="text-muted mb-1">Вид застраховка</p>
+                        <p class="fw-bold">@typeName</p>
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-6">
+                        <p class="text-muted mb-1">Базова годишна премия</p>
+                        <p class="fw-bold text-primary fs-3">@Model.Price лв.</p>
+                    </div>
+                    <div class="col-6">
+                        <p class="text-muted mb-1">Месечна вноска</p>
+                        <p class="fw-bold text-success fs-5">@(Math.Round(Model.Price / 12, 2)) лв.</p>
+                    </div>
+                </div>
+
+                @if (personalisedPrice.HasValue)
+                {
+                    <div class="alert alert-success">
+                        <i class="bi bi-person-check"></i>
+                        <strong>Персонализирана цена за теб:</strong>
+                        <span class="fs-5 ms-2">@personalisedPrice.Value лв./год.</span>
+                        <small class="text-muted ms-2">(изчислена спрямо твоята възраст и стаж)</small>
+                    </div>
+                }
+                else if (User.Identity != null && User.Identity.IsAuthenticated)
+                {
+                    <div class="alert alert-warning small">
+                        <i class="bi bi-info-circle"></i>
+                        Добави <a asp-controller="Account" asp-action="Profile">възраст и стаж в профила си</a>
+                        за да видиш персонализирана цена.
+                    </div>
+                }
+
+                <hr />
+                <h6 class="fw-bold">Покритие</h6>
+                <p>@Model.Coverage</p>
+                <h6 class="fw-bold">Описание</h6>
+                <p>@Model.Description</p>
+                @if (!string.IsNullOrEmpty(Model.Conditions))
+                {
+                    <h6 class="fw-bold">Условия</h6>
+                    <p class="text-muted">@Model.Conditions</p>
+                }
+            </div>
+        </div>
+
+        @if (Model.Reviews.Any())
+        {
+            <h5 class="fw-bold mb-3">Отзиви (@Model.Reviews.Count)</h5>
+            @foreach (var review in Model.Reviews.OrderByDescending(r => r.CreatedAt))
+            {
+                <div class="card mb-2 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <strong>@review.User?.Email</strong>
+                            <span>
+                                @for (int i = 0; i < review.Rating; i++) { <span class="text-warning">★</span> }
+                                @for (int i = review.Rating; i < 5; i++) { <span class="text-muted">☆</span> }
+                            </span>
+                        </div>
+                        <p class="mb-0 mt-1 text-muted small">@review.CreatedAt.ToString("dd.MM.yyyy")</p>
+                        <p class="mb-0 mt-1">@review.Comment</p>
+                    </div>
+                </div>
+            }
+        }
+
+        @if (User.Identity != null && User.Identity.IsAuthenticated)
+        {
+            <div class="card shadow-sm mt-3">
+                <div class="card-header bg-light fw-bold">Остави отзив</div>
+                <div class="card-body">
+                    <form asp-action="AddReview" method="post">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="offerId" value="@Model.Id" />
+                        <div class="mb-2">
+                            <label class="form-label">Оценка</label>
+                            <select name="rating" class="form-select">
+                                @for (int i = 1; i <= 5; i++) { <option value="@i">@i ★</option> }
+                            </select>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">Коментар</label>
+                            <textarea name="comment" class="form-control" rows="3" required></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Изпрати</button>
+                    </form>
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="col-md-4">
+        <div class="card shadow-sm mb-3">
+            <div class="card-body text-center d-grid gap-2">
+                @if (User.Identity != null && User.Identity.IsAuthenticated)
+                {
+                    <a asp-controller="Policy" asp-action="Buy" asp-route-id="@Model.Id" class="btn btn-success">
+                        <i class="bi bi-shield-check"></i> Закупи застраховката
+                    </a>
+                    <form asp-controller="Favorite" asp-action="Add" method="post">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="offerId" value="@Model.Id" />
+                        <button type="submit" class="btn btn-outline-danger w-100">
+                            <i class="bi bi-heart"></i> Добави в Любими
+                        </button>
+                    </form>
+                }
+                else
+                {
+                    <a asp-controller="Account" asp-action="Login" class="btn btn-outline-primary">
+                        Влез за да закупиш или запазиш
+                    </a>
+                }
+                <a href="@Model.Company?.Website" target="_blank" class="btn btn-outline-secondary">
+                    <i class="bi bi-box-arrow-up-right"></i> Сайт на @Model.Company?.Name
+                </a>
+            </div>
+        </div>
+        <div class="card shadow-sm">
+            <div class="card-body text-center">
+                <p class="mb-1 small text-muted">Предлага от</p>
+                <h5 class="fw-bold">@Model.Company?.Name</h5>
+                <p class="small text-muted">@Model.Company?.Description</p>
+            </div>
+        </div>
+    </div>
+</div>

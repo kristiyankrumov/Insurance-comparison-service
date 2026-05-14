@@ -1,0 +1,27 @@
+body {
+    background-color: #f8f9fa;
+}
+
+.navbar-brand {
+    font-size: 1.4rem;
+}
+
+.card {
+    border-radius: 10px;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    transition: transform 0.2s;
+}
+
+footer {
+    margin-top: auto;
+}
+
+.compare-check {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+}
+/* search */

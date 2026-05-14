@@ -1,0 +1,182 @@
+@{
+    ViewData["Title"] = "SuperAdmin Dashboard";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="d-flex align-items-center mb-4 gap-2">
+    <i class="bi bi-shield-fill-check text-danger fs-3"></i>
+    <h2 class="mb-0">SuperAdmin Dashboard</h2>
+    <span class="badge bg-danger ms-2">SuperAdmin</span>
+</div>
+
+<!-- Потребители -->
+<h6 class="text-muted fw-bold text-uppercase mb-2">Потребители</h6>
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm text-center p-3">
+            <div class="fs-1 fw-bold text-primary">@ViewBag.TotalUsers</div>
+            <div class="text-muted">Общо потребители</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm text-center p-3">
+            <div class="fs-1 fw-bold text-danger">@ViewBag.SuperAdminCount</div>
+            <div class="text-muted">SuperAdmin</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm text-center p-3">
+            <div class="fs-1 fw-bold text-warning">@ViewBag.AdminCount</div>
+            <div class="text-muted">Admin</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm text-center p-3">
+            <div class="fs-1 fw-bold text-secondary">@ViewBag.UserCount</div>
+            <div class="text-muted">Потребители</div>
+        </div>
+    </div>
+</div>
+
+<!-- Оферти -->
+<h6 class="text-muted fw-bold text-uppercase mb-2">Оферти и компании</h6>
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm text-center p-3">
+            <div class="fs-1 fw-bold text-success">@ViewBag.TotalOffers</div>
+            <div class="text-muted">Общо оферти</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm text-center p-3">
+            <div class="fs-1 fw-bold text-info">@ViewBag.ActiveOffers</div>
+            <div class="text-muted">Активни оферти</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm text-center p-3">
+            <div class="fs-1 fw-bold text-dark">@ViewBag.TotalCompanies</div>
+            <div class="text-muted">Компании</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm text-center p-3">
+            <div class="fs-1 fw-bold" style="color:#6f42c1">@ViewBag.TotalFavorites</div>
+            <div class="text-muted">Любими</div>
+        </div>
+    </div>
+</div>
+
+<!-- Полици и МПС -->
+<h6 class="text-muted fw-bold text-uppercase mb-2">Полици и МПС</h6>
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm text-center p-3">
+            <div class="fs-1 fw-bold text-success">@ViewBag.ActivePolicies</div>
+            <div class="text-muted">Активни полици</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm text-center p-3">
+            <div class="fs-1 fw-bold text-secondary">@ViewBag.TotalPolicies</div>
+            <div class="text-muted">Общо полици</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm text-center p-3">
+            <div class="fs-1 fw-bold text-primary">@ViewBag.TotalVehicles</div>
+            <div class="text-muted">Регистрирани МПС</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm text-center p-3">
+            <div class="fs-1 fw-bold text-warning">@ViewBag.TotalReviews</div>
+            <div class="text-muted">Отзиви</div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <!-- Оферти по тип -->
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <h5 class="card-title mb-3"><i class="bi bi-bar-chart text-warning"></i> Оферти по тип</h5>
+                @{
+                    var offersByType = ViewBag.OffersByType as IEnumerable<dynamic>;
+                    var typeNames = new Dictionary<int, string> { {0,"Каско"},{1,"Здравна"},{2,"Гражданска"},{3,"Имуществена"} };
+                    var typeColors = new Dictionary<int, string> { {0,"bg-primary"},{1,"bg-danger"},{2,"bg-warning"},{3,"bg-success"} };
+                }
+                @if (offersByType != null)
+                {
+                    foreach (var item in offersByType)
+                    {
+                        int typeInt = (int)item.Type;
+                        string typeName = typeNames.ContainsKey(typeInt) ? typeNames[typeInt] : "Друг";
+                        string colorClass = typeColors.ContainsKey(typeInt) ? typeColors[typeInt] : "bg-secondary";
+                        int count = (int)item.Count;
+                        int percent = ViewBag.TotalOffers > 0 ? (int)((double)count / (double)ViewBag.TotalOffers * 100) : 0;
+                        <div class="mb-2">
+                            <div class="d-flex justify-content-between mb-1">
+                                <span>@typeName</span><span>@count оферти</span>
+                            </div>
+                            <div class="progress" style="height:20px">
+                                <div class="progress-bar @colorClass" style="width:@percent%">@percent%</div>
+                            </div>
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Средна цена по тип -->
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <h5 class="card-title mb-3"><i class="bi bi-cash-coin text-success"></i> Средна цена по тип</h5>
+                @{
+                    var avgPrices = ViewBag.AvgPriceByType as IEnumerable<dynamic>;
+                }
+                @if (avgPrices != null)
+                {
+                    <table class="table table-sm mb-0">
+                        <thead class="table-light">
+                            <tr><th>Вид</th><th class="text-end">Средна цена</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in avgPrices)
+                            {
+                                int typeInt = (int)item.Type;
+                                string typeName = typeNames.ContainsKey(typeInt) ? typeNames[typeInt] : "Друг";
+                                decimal avgPrice = (decimal)item.AvgPrice;
+                                <tr>
+                                    <td>@typeName</td>
+                                    <td class="text-end fw-bold text-success">@Math.Round(avgPrice, 2) лв.</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Бързи действия -->
+<div class="card border-0 shadow-sm">
+    <div class="card-body">
+        <h5 class="card-title mb-3"><i class="bi bi-lightning text-danger"></i> Бързи действия</h5>
+        <div class="d-flex gap-2 flex-wrap">
+            <a asp-area="Admin" asp-controller="Users" asp-action="Index" class="btn btn-outline-danger">
+                <i class="bi bi-people"></i> Управление на роли
+            </a>
+            <a asp-area="Admin" asp-controller="Offers" asp-action="Index" class="btn btn-outline-warning">
+                <i class="bi bi-gear"></i> Управление на оферти
+            </a>
+            <a asp-area="Admin" asp-controller="Offers" asp-action="Create" class="btn btn-outline-success">
+                <i class="bi bi-plus"></i> Нова оферта
+            </a>
+        </div>
+    </div>
+</div>

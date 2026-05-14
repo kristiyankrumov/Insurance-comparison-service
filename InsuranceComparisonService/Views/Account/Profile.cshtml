@@ -1,0 +1,186 @@
+@model InsuranceComparisonService.Models.ApplicationUser
+@{
+    ViewData["Title"] = "Моят профил";
+    var vehicles = ViewBag.Vehicles as IEnumerable<InsuranceComparisonService.Models.Vehicle> ?? new List<InsuranceComparisonService.Models.Vehicle>();
+    var activePolicies = ViewBag.ActivePolicies as IEnumerable<InsuranceComparisonService.Models.InsurancePolicy> ?? new List<InsuranceComparisonService.Models.InsurancePolicy>();
+    int favCount = ViewBag.FavoritesCount ?? 0;
+}
+
+@if (TempData["Success"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show">
+        @TempData["Success"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+<div class="row g-4">
+    <!-- Left: Profile info -->
+    <div class="col-md-4">
+        <div class="card shadow-sm mb-3">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="bi bi-person-circle"></i> Моят профил</h5>
+            </div>
+            <div class="card-body">
+                <div class="text-center mb-3">
+                    <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center"
+                         style="width:72px;height:72px;font-size:2rem;">
+                        @Model.FirstName.FirstOrDefault()@Model.LastName.FirstOrDefault()
+                    </div>
+                    <h5 class="mt-2 mb-0">@Model.FirstName @Model.LastName</h5>
+                    <small class="text-muted">@Model.Email</small>
+                </div>
+                <hr />
+                <!-- Stats -->
+                <div class="d-flex justify-content-around text-center">
+                    <div>
+                        <div class="fw-bold fs-5 text-primary">@vehicles.Count()</div>
+                        <small class="text-muted">МПС</small>
+                    </div>
+                    <div>
+                        <div class="fw-bold fs-5 text-success">@activePolicies.Count()</div>
+                        <small class="text-muted">Полици</small>
+                    </div>
+                    <div>
+                        <div class="fw-bold fs-5 text-danger">@favCount</div>
+                        <small class="text-muted">Любими</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Edit profile -->
+        <div class="card shadow-sm">
+            <div class="card-header bg-light fw-bold">
+                <i class="bi bi-pencil"></i> Редактирай данни
+            </div>
+            <div class="card-body">
+                <form asp-action="UpdateProfile" method="post">
+                    @Html.AntiForgeryToken()
+                    <div class="mb-2">
+                        <label class="form-label small fw-bold">Име</label>
+                        <input type="text" name="firstName" class="form-control form-control-sm" value="@Model.FirstName" required />
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small fw-bold">Фамилия</label>
+                        <input type="text" name="lastName" class="form-control form-control-sm" value="@Model.LastName" required />
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small fw-bold">Възраст</label>
+                        <input type="number" name="age" class="form-control form-control-sm" value="@Model.Age" min="18" max="90" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Шофьорски стаж (год.)</label>
+                        <input type="number" name="experienceYears" class="form-control form-control-sm" value="@Model.DrivingExperienceYears" min="0" max="60" />
+                        <small class="text-muted">Използва се за изчисляване на персонализирана цена</small>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-sm w-100">Запази</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right: Vehicles + Policies + Favorites -->
+    <div class="col-md-8">
+
+        <!-- Vehicles -->
+        <div class="card shadow-sm mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span class="fw-bold"><i class="bi bi-car-front text-primary"></i> Превозни средства</span>
+                <a asp-controller="Vehicle" asp-action="Create" class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-plus"></i> Добави МПС
+                </a>
+            </div>
+            <div class="card-body">
+                @if (!vehicles.Any())
+                {
+                    <p class="text-muted mb-0">Нямаш добавени МПС. <a asp-controller="Vehicle" asp-action="Create">Добави сега</a></p>
+                }
+                else
+                {
+                    <div class="row g-2">
+                        @foreach (var v in vehicles.Take(3))
+                        {
+                            <div class="col-md-4">
+                                <div class="border rounded p-2 text-center small">
+                                    <i class="bi bi-car-front fs-4 text-primary"></i>
+                                    <div class="fw-bold">@v.Make @v.Model</div>
+                                    <div class="text-muted">@v.Year</div>
+                                    <span class="badge bg-dark">@v.PlateNumber</span>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                    @if (vehicles.Count() > 3)
+                    {
+                        <div class="mt-2">
+                            <a asp-controller="Vehicle" asp-action="Index" class="btn btn-sm btn-outline-secondary">
+                                Виж всички (@vehicles.Count())
+                            </a>
+                        </div>
+                    }
+                }
+            </div>
+            @if (vehicles.Any())
+            {
+                <div class="card-footer">
+                    <a asp-controller="Vehicle" asp-action="Index" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-list"></i> Всички МПС
+                    </a>
+                </div>
+            }
+        </div>
+
+        <!-- Active Policies -->
+        <div class="card shadow-sm mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span class="fw-bold"><i class="bi bi-file-earmark-check text-success"></i> Активни застраховки</span>
+                <a asp-controller="Policy" asp-action="Index" class="btn btn-sm btn-outline-success">
+                    <i class="bi bi-archive"></i> История
+                </a>
+            </div>
+            <div class="card-body">
+                @if (!activePolicies.Any())
+                {
+                    <p class="text-muted mb-0">Нямаш активни застраховки. <a asp-controller="Home" asp-action="Index">Разгледай оферти</a></p>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Полица</th><th>Оферта</th><th>Изтича</th><th>Цена</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var p in activePolicies.Take(5))
+                                {
+                                    <tr>
+                                        <td><code class="small">@p.PolicyNumber</code></td>
+                                        <td class="small">@p.Offer?.Title</td>
+                                        <td class="small">@p.EndDate.ToString("dd.MM.yyyy")</td>
+                                        <td class="fw-bold small">@p.FinalPrice лв.</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Quick links -->
+        <div class="d-flex gap-2 flex-wrap">
+            <a asp-controller="Favorite" asp-action="Index" class="btn btn-outline-danger">
+                <i class="bi bi-heart"></i> Моите любими (@favCount)
+            </a>
+            <a asp-controller="Policy" asp-action="Index" class="btn btn-outline-success">
+                <i class="bi bi-file-earmark-check"></i> Всички полици
+            </a>
+            <a asp-controller="Vehicle" asp-action="Index" class="btn btn-outline-primary">
+                <i class="bi bi-car-front"></i> Моите МПС
+            </a>
+        </div>
+    </div>
+</div>

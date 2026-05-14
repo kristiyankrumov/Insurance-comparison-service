@@ -1,0 +1,43 @@
+@model IEnumerable<InsuranceComparisonService.Models.UserFavorite>
+@{
+    ViewData["Title"] = "Моите Любими";
+}
+
+<h2 class="mb-4"><i class="bi bi-heart-fill text-danger"></i> Моите Любими</h2>
+
+@if (!Model.Any())
+{
+    <div class="alert alert-info">
+        Нямаш запазени оферти. <a asp-controller="Home" asp-action="Index">Разгледай офертите</a>
+    </div>
+}
+else
+{
+    <div class="row">
+        @foreach (var fav in Model)
+        {
+            <div class="col-md-4 mb-3">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h5 class="fw-bold">@fav.Offer?.Title</h5>
+                        <p class="text-muted small">@fav.Offer?.Company?.Name</p>
+                        <p class="text-primary fw-bold fs-4">@fav.Offer?.Price лв./год.</p>
+                        <p class="small">@fav.Offer?.Coverage</p>
+                        <small class="text-muted">Запазена на: @fav.SavedAt.ToString("dd.MM.yyyy")</small>
+                    </div>
+                    <div class="card-footer d-flex gap-2">
+                        <a asp-controller="Insurance" asp-action="Details" asp-route-id="@fav.OfferId"
+                           class="btn btn-sm btn-primary flex-fill">Детайли</a>
+                        <form asp-action="Remove" method="post">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="id" value="@fav.Id" />
+                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}

@@ -1,0 +1,121 @@
+@{
+    ViewData["Title"] = "Закупи застраховка";
+    var offer = ViewBag.Offer as InsuranceComparisonService.Models.InsuranceOffer;
+    var vehicles = ViewBag.Vehicles as IEnumerable<InsuranceComparisonService.Models.Vehicle> ?? new List<InsuranceComparisonService.Models.Vehicle>();
+    var user = ViewBag.User as InsuranceComparisonService.Models.ApplicationUser;
+}
+
+<div class="row justify-content-center">
+    <div class="col-md-7">
+        <div class="card shadow">
+            <div class="card-header bg-success text-white">
+                <h4 class="mb-0"><i class="bi bi-shield-check"></i> Закупи застраховка</h4>
+            </div>
+            <div class="card-body p-4">
+
+                <!-- Offer summary -->
+                <div class="alert alert-light border mb-4">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h5 class="fw-bold mb-1">@offer?.Title</h5>
+                            <span class="text-muted">@offer?.Company?.Name</span>
+                        </div>
+                        <div class="text-end">
+                            <div class="fs-4 fw-bold text-success">@offer?.Price лв./год.</div>
+                            <small class="text-muted">@offer?.Coverage</small>
+                        </div>
+                    </div>
+                </div>
+
+                <form asp-action="Buy" method="post" id="buyForm">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="offerId" value="@offer?.Id" />
+
+                    <!-- Vehicle selection (only for Kasko / Civil) -->
+                    @if (offer?.Type == InsuranceComparisonService.Models.InsuranceType.Kasko ||
+                         offer?.Type == InsuranceComparisonService.Models.InsuranceType.Civil)
+                    {
+                        <div class="mb-3">
+                            <label class="form-label fw-bold"><i class="bi bi-car-front"></i> Превозно средство</label>
+                            @if (!vehicles.Any())
+                            {
+                                <div class="alert alert-warning small">
+                                    Нямаш добавени МПС.
+                                    <a asp-controller="Vehicle" asp-action="Create" class="alert-link">Добави сега</a>
+                                </div>
+                            }
+                            else
+                            {
+                                <select name="vehicleId" class="form-select">
+                                    <option value="">— Избери МПС —</option>
+                                    @foreach (var v in vehicles)
+                                    {
+                                        <option value="@v.Id">@v.Make @v.Model (@v.Year) — @v.PlateNumber</option>
+                                    }
+                                </select>
+                            }
+                        </div>
+                    }
+
+                    <!-- Driver data for price calculation -->
+                    <div class="card bg-light border-0 mb-3 p-3">
+                        <h6 class="fw-bold mb-3"><i class="bi bi-calculator"></i> Данни за изчисляване на цена</h6>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">Възраст (години)</label>
+                                <input type="number" name="driverAge" class="form-control"
+                                       min="18" max="90" value="@(user?.Age ?? 30)" required />
+                                <small class="text-muted">Влияе на крайната цена</small>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">Шофьорски стаж (години)</label>
+                                <input type="number" name="experienceYears" class="form-control"
+                                       min="0" max="60" value="@(user?.DrivingExperienceYears ?? 5)" required />
+                                <small class="text-muted">Влияе на крайната цена</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Payment type -->
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Вид плащане</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="paymentType" value="0" id="oneTime" checked />
+                            <label class="form-check-label" for="oneTime">Еднократно (годишна премия)</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="paymentType" value="1" id="monthly" />
+                            <label class="form-check-label" for="monthly">Разсрочено (месечни вноски)</label>
+                        </div>
+                    </div>
+
+                    <!-- Duration -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Срок на застраховката</label>
+                        <select name="durationMonths" class="form-select">
+                            <option value="3">3 месеца</option>
+                            <option value="6">6 месеца</option>
+                            <option value="12" selected>12 месеца (1 година)</option>
+                            <option value="24">24 месеца (2 години)</option>
+                        </select>
+                    </div>
+
+                    <div class="alert alert-info small mb-3">
+                        <i class="bi bi-info-circle"></i>
+                        Крайната цена се изчислява спрямо въведените данни.
+                        Млади водачи (&lt;25 г.) или такива без опит заплащат по-висока премия.
+                    </div>
+
+                    <button type="submit" class="btn btn-success w-100 btn-lg">
+                        <i class="bi bi-shield-check"></i> Потвърди и закупи
+                    </button>
+                </form>
+            </div>
+        </div>
+        <div class="mt-3">
+            <a asp-controller="Insurance" asp-action="Details" asp-route-id="@offer?.Id" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Обратно към офертата
+            </a>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,66 @@
+@model InsuranceComparisonService.Models.InsuranceOffer
+@{
+    ViewData["Title"] = Model.Id == 0 ? "Нова оферта" : "Редактирай оферта";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<h2 class="mb-4">@ViewData["Title"]</h2>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <form asp-action="@(Model.Id == 0 ? "Create" : "Edit")" method="post">
+            @Html.AntiForgeryToken()
+            <div asp-validation-summary="All" class="alert alert-danger d-none"></div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-bold">Наименование</label>
+                    <input asp-for="Title" class="form-control" required />
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label class="form-label fw-bold">Вид</label>
+                    <select asp-for="Type" class="form-select">
+                        <option value="0">Каско</option>
+                        <option value="1">Здравна</option>
+                        <option value="2">Гражданска отговорност</option>
+                        <option value="3">Имуществена</option>
+                    </select>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label class="form-label fw-bold">Цена (лв./год.)</label>
+                    <input asp-for="Price" type="number" class="form-control" step="0.01" required />
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-bold">Компания</label>
+                    <select asp-for="CompanyId" class="form-select">
+                        @foreach (var c in ViewBag.Companies as IEnumerable<InsuranceComparisonService.Models.InsuranceCompany> ?? new List<InsuranceComparisonService.Models.InsuranceCompany>())
+                        {
+                            <option value="@c.Id">@c.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-bold">Покритие</label>
+                    <input asp-for="Coverage" class="form-control" required />
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-bold">Описание</label>
+                <textarea asp-for="Description" class="form-control" rows="3" required></textarea>
+            </div>
+            <div class="mb-3">
+                <label class="form-label fw-bold">Условия</label>
+                <input asp-for="Conditions" class="form-control" />
+            </div>
+
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-success">Запази</button>
+                <a asp-action="Index" class="btn btn-outline-secondary">Отказ</a>
+            </div>
+        </form>
+    </div>
+</div>
