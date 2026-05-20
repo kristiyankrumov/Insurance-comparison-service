@@ -297,4 +297,5 @@ namespace InsuranceComparisonService.Tests
  / /   t e s t 2  
  / /   t e s t 3  
  / /   t e s t 4  
+ / /   i n t e g r a t i o n   t e s t s  
  
