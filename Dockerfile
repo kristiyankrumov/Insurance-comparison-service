@@ -11,8 +11,8 @@ WORKDIR /src
 COPY ["InsuranceComparisonService/InsuranceComparisonService.csproj", "InsuranceComparisonService/"]
 RUN dotnet restore "InsuranceComparisonService/InsuranceComparisonService.csproj"
 
-# Copy all source files and build
-COPY . .
+# Copy remaining project files and build
+COPY InsuranceComparisonService/. ./InsuranceComparisonService/
 WORKDIR "/src/InsuranceComparisonService"
 RUN dotnet build "InsuranceComparisonService.csproj" -c Release -o /app/build
 
