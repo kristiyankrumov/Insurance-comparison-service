@@ -1,0 +1,234 @@
+@{
+    ViewData["Title"] = "Плащане";
+    var offer = ViewBag.Offer as InsuranceComparisonService.Models.InsuranceOffer;
+    var vehicle = ViewBag.Vehicle as InsuranceComparisonService.Models.Vehicle;
+    decimal finalPrice = ViewBag.FinalPrice;
+    string stripeKey = ViewBag.StripePublishableKey;
+}
+
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <h3 class="mb-4"><i class="bi bi-credit-card"></i> Завършване на плащане</h3>
+
+        <!-- Order summary -->
+        <div class="card mb-4 border-success">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="bi bi-shield-check"></i> Резюме на поръчката</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-6">
+                        <strong>Застраховка:</strong> @offer?.Title<br/>
+                        <strong>Компания:</strong> @offer?.Company?.Name<br/>
+                        @if (vehicle != null)
+                        {
+                            <text><strong>МПС:</strong> @vehicle.Make @vehicle.Model (@vehicle.Year)<br /></text>
+                        }
+                        <strong>Срок:</strong> @ViewBag.DurationMonths месеца
+                    </div>
+                    <div class="col-6 text-end">
+                        <div class="fs-2 fw-bold text-success">@finalPrice.ToString("F2") лв.</div>
+                        <small class="text-muted">Крайна цена след изчисление</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Payment method tabs -->
+        <ul class="nav nav-tabs mb-4" id="paymentTabs">
+            <li class="nav-item">
+                <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#stripeTab">
+                    <i class="bi bi-credit-card"></i> Карта (Stripe)
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#paypalTab">
+                    <img src="https://www.paypalobjects.com/webstatic/mktg/logo/pp_cc_mark_37x23.jpg" height="20" alt="PayPal"/> PayPal
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content">
+
+            <!-- ── Stripe Tab ─────────────────────────────────── -->
+            <div class="tab-pane fade show active" id="stripeTab">
+                <div class="card shadow-sm">
+                    <div class="card-body p-4">
+                        <h5 class="mb-3">Плащане с дебитна/кредитна карта</h5>
+
+                        <div class="alert alert-info small">
+                            <i class="bi bi-info-circle"></i>
+                            <strong>Тестов режим:</strong> Използвайте карта <strong>4242 4242 4242 4242</strong>,
+                            дата <strong>12/34</strong>, CVC <strong>123</strong>
+                        </div>
+
+                        <form id="stripeForm" asp-controller="Payment" asp-action="ProcessStripe" method="post">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="offerId" value="@ViewBag.OfferId" />
+                            <input type="hidden" name="vehicleId" value="@ViewBag.VehicleId" />
+                            <input type="hidden" name="driverAge" value="@ViewBag.DriverAge" />
+                            <input type="hidden" name="experienceYears" value="@ViewBag.ExperienceYears" />
+                            <input type="hidden" name="paymentType" value="@ViewBag.PaymentType" />
+                            <input type="hidden" name="durationMonths" value="@ViewBag.DurationMonths" />
+                            <input type="hidden" name="stripeToken" id="stripeToken" />
+
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Име на картодържателя</label>
+                                <input type="text" name="cardholderName" class="form-control"
+                                       placeholder="Иван Иванов" required />
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Номер на картата</label>
+                                <div id="card-number-element" class="form-control" style="height:42px;padding-top:10px;"></div>
+                            </div>
+
+                            <div class="row mb-3">
+                                <div class="col-6">
+                                    <label class="form-label fw-bold">Валидност</label>
+                                    <div id="card-expiry-element" class="form-control" style="height:42px;padding-top:10px;"></div>
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label fw-bold">CVC</label>
+                                    <div id="card-cvc-element" class="form-control" style="height:42px;padding-top:10px;"></div>
+                                </div>
+                            </div>
+
+                            <div id="card-errors" class="alert alert-danger d-none" role="alert"></div>
+
+                            <button type="submit" id="stripeSubmit" class="btn btn-primary w-100 btn-lg">
+                                <i class="bi bi-lock"></i> Плати @finalPrice.ToString("F2") лв.
+                            </button>
+
+                            <div class="text-center mt-2">
+                                <small class="text-muted">
+                                    <i class="bi bi-shield-lock"></i> Защитено с SSL. Картовите данни се обработват от Stripe.
+                                </small>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── PayPal Tab ─────────────────────────────────── -->
+            <div class="tab-pane fade" id="paypalTab">
+                <div class="card shadow-sm">
+                    <div class="card-body p-4 text-center">
+                        <h5 class="mb-3">Плащане с PayPal</h5>
+
+                        <div class="alert alert-info small text-start">
+                            <i class="bi bi-info-circle"></i>
+                            <strong>Тестов режим (Sandbox):</strong> Влезте с тестов PayPal акаунт.
+                        </div>
+
+                        <form id="paypalForm" asp-controller="Payment" asp-action="ProcessPayPal" method="post">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="offerId" value="@ViewBag.OfferId" />
+                            <input type="hidden" name="vehicleId" value="@ViewBag.VehicleId" />
+                            <input type="hidden" name="driverAge" value="@ViewBag.DriverAge" />
+                            <input type="hidden" name="experienceYears" value="@ViewBag.ExperienceYears" />
+                            <input type="hidden" name="paymentType" value="@ViewBag.PaymentType" />
+                            <input type="hidden" name="durationMonths" value="@ViewBag.DurationMonths" />
+                            <input type="hidden" name="paypalOrderId" id="paypalOrderId" />
+
+                            <div id="paypal-button-container" class="my-3"></div>
+                        </form>
+
+                        <small class="text-muted">
+                            <i class="bi bi-shield-lock"></i> Плащането се обработва сигурно от PayPal.
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="mt-3">
+            <a asp-controller="Policy" asp-action="Buy" asp-route-id="@ViewBag.OfferId"
+               class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Обратно
+            </a>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <!-- Stripe.js -->
+    <script src="https://js.stripe.com/v3/"></script>
+    <!-- PayPal SDK (Sandbox) -->
+    <script src="https://www.paypal.com/sdk/js?client-id=sb&currency=USD"></script>
+
+    <script>
+        // ── Stripe setup ──────────────────────────────────────────────────────
+        const stripe = Stripe('@stripeKey');
+        const elements = stripe.elements();
+
+        const style = {
+            base: { fontSize: '16px', color: '#32325d', '::placeholder': { color: '#aab7c4' } },
+            invalid: { color: '#fa755a' }
+        };
+
+        const cardNumber = elements.create('cardNumber', { style });
+        const cardExpiry = elements.create('cardExpiry', { style });
+        const cardCvc   = elements.create('cardCvc',   { style });
+
+        cardNumber.mount('#card-number-element');
+        cardExpiry.mount('#card-expiry-element');
+        cardCvc.mount('#card-cvc-element');
+
+        // Show errors
+        [cardNumber, cardExpiry, cardCvc].forEach(el => {
+            el.on('change', ({ error }) => {
+                const errorEl = document.getElementById('card-errors');
+                if (error) {
+                    errorEl.textContent = error.message;
+                    errorEl.classList.remove('d-none');
+                } else {
+                    errorEl.classList.add('d-none');
+                }
+            });
+        });
+
+        // Submit Stripe form
+        document.getElementById('stripeForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('stripeSubmit');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Обработване...';
+
+            const { token, error } = await stripe.createToken(cardNumber);
+
+            if (error) {
+                const errorEl = document.getElementById('card-errors');
+                errorEl.textContent = error.message;
+                errorEl.classList.remove('d-none');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-lock"></i> Плати @finalPrice.ToString("F2") лв.';
+            } else {
+                document.getElementById('stripeToken').value = token.id;
+                e.target.submit();
+            }
+        });
+
+        // ── PayPal setup ──────────────────────────────────────────────────────
+        paypal.Buttons({
+            createOrder: function(data, actions) {
+                return actions.order.create({
+                    purchase_units: [{
+                        amount: {
+                            value: '@finalPrice.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)'
+                        },
+                        description: '@offer?.Title'
+                    }]
+                });
+            },
+            onApprove: function(data, actions) {
+                document.getElementById('paypalOrderId').value = data.orderID;
+                document.getElementById('paypalForm').submit();
+            },
+            onError: function(err) {
+                alert('PayPal грешка: ' + err);
+            }
+        }).render('#paypal-button-container');
+    </script>
+}

@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: insurance-comparison-service
+    env: docker
+    dockerfilePath: Dockerfile
+    plan: free
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: insurance-db
+          property: connectionString
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+
+databases:
+  - name: insurance-db
+    plan: free
