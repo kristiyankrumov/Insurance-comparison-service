@@ -5,12 +5,20 @@ namespace InsuranceComparisonService.Models
     public class Review
     {
         public int Id { get; set; }
-        [Required] public string UserId { get; set; }
-        [Required] public int OfferId { get; set; }
-        [Range(1, 5)] public int Rating { get; set; }
-        [MaxLength(1000)] public string Comment { get; set; }
+
+        [Required(ErrorMessage = "Коментарът е задължителен")]
+        [StringLength(1000, ErrorMessage = "Коментарът не може да надвишава 1000 знака")]
+        public string Comment { get; set; } = string.Empty;
+
+        [Range(1, 5, ErrorMessage = "Оценката трябва да е между 1 и 5")]
+        public int Rating { get; set; }
+
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-        public virtual ApplicationUser User { get; set; }
-        public virtual InsuranceOffer Offer { get; set; }
+
+        public string UserId { get; set; } = string.Empty;
+        public ApplicationUser? User { get; set; }
+
+        public int OfferId { get; set; }
+        public InsuranceOffer? Offer { get; set; }
     }
 }
