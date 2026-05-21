@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
+using Npgsql;
 using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -244,7 +245,8 @@ async Task InitializeDatabaseAsync(IServiceProvider services)
         // List tables after schema creation to verify PostgreSQL schema state
         try
         {
-            await using var conn = db.Database.GetDbConnection();
+            var connectionString = db.Database.GetConnectionString();
+            await using var conn = new NpgsqlConnection(connectionString);
             await conn.OpenAsync();
             await using var cmd = conn.CreateCommand();
             cmd.CommandText = "SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename";
