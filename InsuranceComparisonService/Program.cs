@@ -218,27 +218,59 @@ async Task InitializeDatabaseAsync(IServiceProvider services)
     {
         var db = serviceProvider.GetRequiredService<ApplicationDbContext>();
 
+        // Check database connection
+        Console.WriteLine("[DB] Checking database connection...");
+        var canConnect = await db.Database.CanConnectAsync();
+        if (!canConnect)
+        {
+            Console.WriteLine("[DB] ERROR: Cannot connect to database!");
+            throw new Exception("Database connection failed");
+        }
+        Console.WriteLine("[DB] Database connection OK");
+
         // Log pending migrations
-        var pendingMigrations = await db.Database.GetPendingMigrationsAsync();
-        var pendingList = pendingMigrations.ToList();
-        Console.WriteLine($"[DB] Pending migrations: {(pendingList.Any() ? string.Join(", ", pendingList) : "none")}");
+        var pendingMigrations = (await db.Database.GetPendingMigrationsAsync()).ToList();
+        Console.WriteLine($"[DB] Pending migrations: {(pendingMigrations.Any() ? string.Join(", ", pendingMigrations) : "none")}");
+
+        // Check applied migrations
+        var appliedMigrations = (await db.Database.GetAppliedMigrationsAsync()).ToList();
+        Console.WriteLine($"[DB] Applied migrations: {(appliedMigrations.Any() ? string.Join(", ", appliedMigrations) : "none")}");
 
         // Apply all pending migrations
-        Console.WriteLine("[DB] Applying migrations...");
-        await db.Database.MigrateAsync();
-        Console.WriteLine("[DB] Migrations applied successfully");
+        if (pendingMigrations.Any())
+        {
+            Console.WriteLine($"[DB] Applying {pendingMigrations.Count} migration(s)...");
+            await db.Database.MigrateAsync();
+            Console.WriteLine("[DB] Migrations applied successfully");
+        }
+        else if (!appliedMigrations.Any())
+        {
+            // No migrations history - try to create tables directly
+            Console.WriteLine("[DB] No migration history found. Creating tables from model...");
+            await db.Database.EnsureCreatedAsync();
+            Console.WriteLine("[DB] Tables created from model");
+        }
+        else
+        {
+            Console.WriteLine("[DB] All migrations already applied");
+        }
 
         var roleManager = serviceProvider.GetRequiredService<RoleManager<IdentityRole>>();
         var userManager = serviceProvider.GetRequiredService<UserManager<ApplicationUser>>();
 
         // Роли
+        Console.WriteLine("[DB] Creating default roles...");
         foreach (var role in new[] { "SuperAdmin", "Admin", "User" })
         {
             if (!await roleManager.RoleExistsAsync(role))
+            {
                 await roleManager.CreateAsync(new IdentityRole(role));
+                Console.WriteLine($"[DB]   Created role: {role}");
+            }
         }
 
         // Администратор
+        Console.WriteLine("[DB] Creating default admin user...");
         var adminEmail = "admin@insurance.bg";
         if (await userManager.FindByEmailAsync(adminEmail) == null)
         {
@@ -249,10 +281,19 @@ async Task InitializeDatabaseAsync(IServiceProvider services)
                 EmailConfirmed = true
             };
             var result = await userManager.CreateAsync(admin, "Admin123!");
-            if (result.Succeeded) await userManager.AddToRoleAsync(admin, "Admin");
+            if (result.Succeeded)
+            {
+                await userManager.AddToRoleAsync(admin, "Admin");
+                Console.WriteLine($"[DB]   Created admin: {adminEmail}");
+            }
+            else
+            {
+                Console.WriteLine($"[DB]   Failed to create admin: {string.Join(", ", result.Errors.Select(e => e.Description))}");
+            }
         }
 
         // Супер Администратор
+        Console.WriteLine("[DB] Creating default superadmin user...");
         var superAdminEmail = "superadmin@insurance.bg";
         if (await userManager.FindByEmailAsync(superAdminEmail) == null)
         {
@@ -263,7 +304,15 @@ async Task InitializeDatabaseAsync(IServiceProvider services)
                 EmailConfirmed = true
             };
             var result = await userManager.CreateAsync(superAdmin, "SuperAdmin123!");
-            if (result.Succeeded) await userManager.AddToRoleAsync(superAdmin, "SuperAdmin");
+            if (result.Succeeded)
+            {
+                await userManager.AddToRoleAsync(superAdmin, "SuperAdmin");
+                Console.WriteLine($"[DB]   Created superadmin: {superAdminEmail}");
+            }
+            else
+            {
+                Console.WriteLine($"[DB]   Failed to create superadmin: {string.Join(", ", result.Errors.Select(e => e.Description))}");
+            }
         }
 
         Console.WriteLine("[DB] Database initialization completed successfully");
