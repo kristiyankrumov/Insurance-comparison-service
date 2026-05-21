@@ -28,8 +28,36 @@ namespace InsuranceComparisonService.Services
         {
             _logger.LogInformation("PolicyExpiryReminderService стартира.");
 
-            // Изчакваме малко след стартиране на апликацията
-            await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
+            // Wait longer for database to be ready (migrations may be running)
+            await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
+
+            // Ensure database is ready before starting
+            int retries = 0;
+            const int maxRetries = 10;
+            while (retries < maxRetries && !stoppingToken.IsCancellationRequested)
+            {
+                try
+                {
+                    using var scope = _scopeFactory.CreateScope();
+                    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                    await db.Database.CanConnectAsync(stoppingToken);
+                    _logger.LogInformation("Database is ready. Starting policy expiry reminders.");
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    retries++;
+                    _logger.LogWarning($"Waiting for database to be ready... (attempt {retries}/{maxRetries}). Error: {ex.Message}");
+                    if (retries < maxRetries)
+                    {
+                        await Task.Delay(TimeSpan.FromSeconds(3), stoppingToken);
+                    }
+                    else
+                    {
+                        _logger.LogError("Database failed to become ready after retries. Continuing anyway...");
+                    }
+                }
+            }
 
             while (!stoppingToken.IsCancellationRequested)
             {

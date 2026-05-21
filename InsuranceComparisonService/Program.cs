@@ -19,11 +19,21 @@ builder.WebHost.UseUrls($"http://*:{port}");
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
                        ?? Environment.GetEnvironmentVariable("DATABASE_URL");
 
-// Ensure SQLite directory exists
-if (string.IsNullOrEmpty(connectionString) || 
-    (!connectionString.Contains("Host=") && 
-     !connectionString.Contains("postgres://") && 
-     !connectionString.Contains("postgresql://")))
+var isPostgres = !string.IsNullOrEmpty(connectionString) &&
+                 (connectionString.Contains("Host=") ||
+                  connectionString.Contains("postgres://") ||
+                  connectionString.Contains("postgresql://") ||
+                  connectionString.Contains("@") && connectionString.Contains(":") && !connectionString.StartsWith("Data Source="));
+
+// Log database type
+Console.WriteLine($"[DB] Using {(isPostgres ? "PostgreSQL" : "SQLite")} database");
+if (!isPostgres)
+{
+    Console.WriteLine($"[DB] Connection string: {connectionString ?? "Data Source=insurance.db"}");
+}
+
+// Ensure SQLite directory exists (for local dev)
+if (!isPostgres)
 {
     var sqlite_conn = connectionString ?? "Data Source=insurance.db";
     if (sqlite_conn.Contains("Data Source="))
@@ -42,10 +52,7 @@ if (string.IsNullOrEmpty(connectionString) ||
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
-    if (!string.IsNullOrEmpty(connectionString) &&
-        (connectionString.Contains("Host=") ||
-         connectionString.Contains("postgres://") ||
-         connectionString.Contains("postgresql://")))
+    if (isPostgres)
     {
         options.UseNpgsql(ConvertPostgresUrlToConnectionString(connectionString));
     }
@@ -254,16 +261,34 @@ app.Run();
 // ── Helpers ───────────────────────────────────────────────────────────────────
 string ConvertPostgresUrlToConnectionString(string url)
 {
-    if (string.IsNullOrWhiteSpace(url)) return url;
-    if (!url.StartsWith("postgres://") && !url.StartsWith("postgresql://")) return url;
+    if (string.IsNullOrWhiteSpace(url)) return "Host=localhost;Port=5432;Database=insurance;";
+    
+    // If already in connection string format (contains Host=), return as-is
+    if (url.Contains("Host=") && url.Contains("Port=")) return url;
+    
+    // Handle postgresql:// and postgres:// URLs
+    if (!url.StartsWith("postgres://") && !url.StartsWith("postgresql://"))
+    {
+        return url; // Assume it's already a connection string
+    }
 
-    var uri = new Uri(url);
-    var userInfo = uri.UserInfo.Split(':');
-    var username = userInfo[0];
-    var password = userInfo.Length > 1 ? userInfo[1] : "";
-    var host = uri.Host;
-    var dbPort = uri.Port;
-    var database = uri.AbsolutePath.TrimStart('/');
+    try
+    {
+        var uri = new Uri(url);
+        var userInfo = uri.UserInfo.Split(':');
+        var username = userInfo[0];
+        var password = userInfo.Length > 1 ? userInfo[1] : "";
+        var host = uri.Host;
+        var dbPort = uri.Port > 0 ? uri.Port : 5432;
+        var database = uri.AbsolutePath.TrimStart('/');
+        
+        Console.WriteLine($"[DB] Converted PostgreSQL URL to connection string - Host: {host}, Port: {dbPort}, Database: {database}");
 
-    return $"Host={host};Port={dbPort};Database={database};Username={username};Password={password};SSL Mode=Require;Trust Server Certificate=true;";
+        return $"Host={host};Port={dbPort};Database={database};Username={username};Password={password};SSL Mode=Require;Trust Server Certificate=true;";
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[DB] Error converting PostgreSQL URL: {ex.Message}");
+        return url;
+    }
 }
