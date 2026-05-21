@@ -228,49 +228,67 @@ async Task InitializeDatabaseAsync(IServiceProvider services)
         }
         Console.WriteLine("[DB] Database connection OK");
 
-        // Log pending migrations
-        var pendingMigrations = (await db.Database.GetPendingMigrationsAsync()).ToList();
-        Console.WriteLine($"[DB] Pending migrations: {(pendingMigrations.Any() ? string.Join(", ", pendingMigrations) : "none")}");
-
-        // Check applied migrations
-        var appliedMigrations = (await db.Database.GetAppliedMigrationsAsync()).ToList();
-        Console.WriteLine($"[DB] Applied migrations: {(appliedMigrations.Any() ? string.Join(", ", appliedMigrations) : "none")}");
-
-        // Apply all pending migrations
-        if (pendingMigrations.Any())
+        // For PostgreSQL, use EnsureCreatedAsync for reliable table creation
+        // This works better than migrations for initial setup
+        Console.WriteLine("[DB] Creating/verifying database schema...");
+        var created = await db.Database.EnsureCreatedAsync();
+        if (created)
         {
-            Console.WriteLine($"[DB] Applying {pendingMigrations.Count} migration(s)...");
-            await db.Database.MigrateAsync();
-            Console.WriteLine("[DB] Migrations applied successfully");
-        }
-        else if (!appliedMigrations.Any())
-        {
-            // No migrations history - try to create tables directly
-            Console.WriteLine("[DB] No migration history found. Creating tables from model...");
-            await db.Database.EnsureCreatedAsync();
-            Console.WriteLine("[DB] Tables created from model");
+            Console.WriteLine("[DB] Database and tables created from model");
         }
         else
         {
-            Console.WriteLine("[DB] All migrations already applied");
+            Console.WriteLine("[DB] Database already exists, verifying schema...");
+        }
+
+        // List tables after schema creation to verify PostgreSQL schema state
+        try
+        {
+            await using var conn = db.Database.GetDbConnection();
+            await conn.OpenAsync();
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename";
+            await using var reader = await cmd.ExecuteReaderAsync();
+            var tableNames = new List<string>();
+            while (await reader.ReadAsync())
+            {
+                tableNames.Add(reader.GetString(0));
+            }
+            Console.WriteLine($"[DB] PostgreSQL public tables: {string.Join(", ", tableNames)}");
+        }
+        catch (Exception listEx)
+        {
+            Console.WriteLine($"[DB] Warning: Could not list PostgreSQL tables: {listEx.Message}");
+        }
+
+        // Try migrations as well if they haven't been applied
+        var pendingMigrations = (await db.Database.GetPendingMigrationsAsync()).ToList();
+        if (pendingMigrations.Any())
+        {
+            Console.WriteLine($"[DB] Applying {pendingMigrations.Count} pending migration(s): {string.Join(", ", pendingMigrations)}");
+            await db.Database.MigrateAsync();
+            Console.WriteLine("[DB] Migrations applied successfully");
         }
 
         var roleManager = serviceProvider.GetRequiredService<RoleManager<IdentityRole>>();
         var userManager = serviceProvider.GetRequiredService<UserManager<ApplicationUser>>();
 
         // Роли
-        Console.WriteLine("[DB] Creating default roles...");
+        Console.WriteLine("[DB] Ensuring default roles exist...");
         foreach (var role in new[] { "SuperAdmin", "Admin", "User" })
         {
             if (!await roleManager.RoleExistsAsync(role))
             {
-                await roleManager.CreateAsync(new IdentityRole(role));
-                Console.WriteLine($"[DB]   Created role: {role}");
+                var result = await roleManager.CreateAsync(new IdentityRole(role));
+                if (result.Succeeded)
+                    Console.WriteLine($"[DB]   Created role: {role}");
+                else
+                    Console.WriteLine($"[DB]   Failed to create role {role}: {string.Join(", ", result.Errors.Select(e => e.Description))}");
             }
         }
 
         // Администратор
-        Console.WriteLine("[DB] Creating default admin user...");
+        Console.WriteLine("[DB] Ensuring admin user exists...");
         var adminEmail = "admin@insurance.bg";
         if (await userManager.FindByEmailAsync(adminEmail) == null)
         {
@@ -293,7 +311,7 @@ async Task InitializeDatabaseAsync(IServiceProvider services)
         }
 
         // Супер Администратор
-        Console.WriteLine("[DB] Creating default superadmin user...");
+        Console.WriteLine("[DB] Ensuring superadmin user exists...");
         var superAdminEmail = "superadmin@insurance.bg";
         if (await userManager.FindByEmailAsync(superAdminEmail) == null)
         {
@@ -315,14 +333,14 @@ async Task InitializeDatabaseAsync(IServiceProvider services)
             }
         }
 
-        Console.WriteLine("[DB] Database initialization completed successfully");
+        Console.WriteLine("[DB] Database initialization completed successfully ✓");
     }
     catch (Exception ex)
     {
         var logger = serviceProvider.GetRequiredService<ILogger<Program>>();
         logger.LogError(ex, "[DB] Error during database initialization");
-        Console.WriteLine($"[DB] ERROR: {ex.Message}");
-        Console.WriteLine($"[DB] StackTrace: {ex.StackTrace}");
+        Console.WriteLine($"[DB] FATAL ERROR: {ex.Message}");
+        Console.WriteLine($"[DB] Type: {ex.GetType().Name}");
         throw;
     }
 }
