@@ -1,5 +1,5 @@
-using System;
 using System.ComponentModel.DataAnnotations;
+
 namespace InsuranceComparisonService.Models
 {
     public class Review
@@ -7,7 +7,7 @@ namespace InsuranceComparisonService.Models
         public int Id { get; set; }
 
         [Required(ErrorMessage = "Коментарът е задължителен")]
-        [StringLength(1000, ErrorMessage = "Коментарът не може да надвишава 1000 знака")]
+        [StringLength(1000)]
         public string Comment { get; set; } = string.Empty;
 
         [Range(1, 5, ErrorMessage = "Оценката трябва да е между 1 и 5")]
