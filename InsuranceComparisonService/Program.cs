@@ -151,60 +151,7 @@ builder.Services.ConfigureApplicationCookie(options =>
 var app = builder.Build();
 
 // ── Инициализация на база данни ───────────────────────────────────────────────
-using (var scope = app.Services.CreateScope())
-{
-    var services = scope.ServiceProvider;
-    try
-    {
-        var db = services.GetRequiredService<ApplicationDbContext>();
-
-        // Прилага всички pending миграции (или създава базата ако не съществува)
-        db.Database.Migrate();
-
-        var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
-        var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
-
-        // Роли
-        foreach (var role in new[] { "SuperAdmin", "Admin", "User" })
-        {
-            if (!await roleManager.RoleExistsAsync(role))
-                await roleManager.CreateAsync(new IdentityRole(role));
-        }
-
-        // Администратор
-        var adminEmail = "admin@insurance.bg";
-        if (await userManager.FindByEmailAsync(adminEmail) == null)
-        {
-            var admin = new ApplicationUser
-            {
-                UserName = adminEmail, Email = adminEmail,
-                FirstName = "Администратор", LastName = "Системен",
-                EmailConfirmed = true
-            };
-            var result = await userManager.CreateAsync(admin, "Admin123!");
-            if (result.Succeeded) await userManager.AddToRoleAsync(admin, "Admin");
-        }
-
-        // Супер Администратор
-        var superAdminEmail = "superadmin@insurance.bg";
-        if (await userManager.FindByEmailAsync(superAdminEmail) == null)
-        {
-            var superAdmin = new ApplicationUser
-            {
-                UserName = superAdminEmail, Email = superAdminEmail,
-                FirstName = "Супер", LastName = "Администратор",
-                EmailConfirmed = true
-            };
-            var result = await userManager.CreateAsync(superAdmin, "SuperAdmin123!");
-            if (result.Succeeded) await userManager.AddToRoleAsync(superAdmin, "SuperAdmin");
-        }
-    }
-    catch (Exception ex)
-    {
-        var logger = services.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "Грешка при инициализация на базата данни");
-    }
-}
+await InitializeDatabaseAsync(app.Services);
 
 // ── Middleware pipeline ───────────────────────────────────────────────────────
 app.UseGlobalExceptionHandler();
@@ -263,6 +210,74 @@ app.MapControllerRoute(
 app.Run();
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+async Task InitializeDatabaseAsync(IServiceProvider services)
+{
+    using var scope = services.CreateScope();
+    var serviceProvider = scope.ServiceProvider;
+    try
+    {
+        var db = serviceProvider.GetRequiredService<ApplicationDbContext>();
+
+        // Log pending migrations
+        var pendingMigrations = await db.Database.GetPendingMigrationsAsync();
+        var pendingList = pendingMigrations.ToList();
+        Console.WriteLine($"[DB] Pending migrations: {(pendingList.Any() ? string.Join(", ", pendingList) : "none")}");
+
+        // Apply all pending migrations
+        Console.WriteLine("[DB] Applying migrations...");
+        await db.Database.MigrateAsync();
+        Console.WriteLine("[DB] Migrations applied successfully");
+
+        var roleManager = serviceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+        var userManager = serviceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+
+        // Роли
+        foreach (var role in new[] { "SuperAdmin", "Admin", "User" })
+        {
+            if (!await roleManager.RoleExistsAsync(role))
+                await roleManager.CreateAsync(new IdentityRole(role));
+        }
+
+        // Администратор
+        var adminEmail = "admin@insurance.bg";
+        if (await userManager.FindByEmailAsync(adminEmail) == null)
+        {
+            var admin = new ApplicationUser
+            {
+                UserName = adminEmail, Email = adminEmail,
+                FirstName = "Администратор", LastName = "Системен",
+                EmailConfirmed = true
+            };
+            var result = await userManager.CreateAsync(admin, "Admin123!");
+            if (result.Succeeded) await userManager.AddToRoleAsync(admin, "Admin");
+        }
+
+        // Супер Администратор
+        var superAdminEmail = "superadmin@insurance.bg";
+        if (await userManager.FindByEmailAsync(superAdminEmail) == null)
+        {
+            var superAdmin = new ApplicationUser
+            {
+                UserName = superAdminEmail, Email = superAdminEmail,
+                FirstName = "Супер", LastName = "Администратор",
+                EmailConfirmed = true
+            };
+            var result = await userManager.CreateAsync(superAdmin, "SuperAdmin123!");
+            if (result.Succeeded) await userManager.AddToRoleAsync(superAdmin, "SuperAdmin");
+        }
+
+        Console.WriteLine("[DB] Database initialization completed successfully");
+    }
+    catch (Exception ex)
+    {
+        var logger = serviceProvider.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "[DB] Error during database initialization");
+        Console.WriteLine($"[DB] ERROR: {ex.Message}");
+        Console.WriteLine($"[DB] StackTrace: {ex.StackTrace}");
+        throw;
+    }
+}
+
 string ConvertPostgresUrlToConnectionString(string url)
 {
     if (string.IsNullOrWhiteSpace(url)) return "Host=localhost;Port=5432;Database=insurance;";
