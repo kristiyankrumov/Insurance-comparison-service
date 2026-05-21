@@ -1,11 +1,25 @@
 ## .NET
-bin/
-obj/
 *.user
 *.suo
 .vs/
-*.swp
-appsettings.Development.json
+bin/
+obj/
+*.db
+*.db-shm
+*.db-wal
 
-## User secrets
+## User Secrets
 secrets.json
+
+## Publish output
+publish/
+*.nupkg
+
+## OS
+.DS_Store
+Thumbs.db
+
+## Environment files — никога не качвай!
+.env
+.env.local
+appsettings.Production.json

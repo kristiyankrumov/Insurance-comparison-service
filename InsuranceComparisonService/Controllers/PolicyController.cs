@@ -16,26 +16,29 @@ namespace InsuranceComparisonService.Controllers
         private readonly IInsuranceRepository _repo;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly PriceCalculatorService _calculator;
+        private readonly IEmailService _emailService;
 
         public PolicyController(
             ApplicationDbContext context,
             IInsuranceRepository repo,
             UserManager<ApplicationUser> userManager,
-            PriceCalculatorService calculator)
+            PriceCalculatorService calculator,
+            IEmailService emailService)
         {
             _context = context;
             _repo = repo;
             _userManager = userManager;
             _calculator = calculator;
+            _emailService = emailService;
         }
 
-        // GET /Policy — история на полиции
+        // GET /Policy — история на полици
         public async Task<IActionResult> Index()
         {
             var user = await _userManager.GetUserAsync(User);
             if (user == null) return RedirectToAction("Login", "Account");
 
-            // Auto-expire policies
+            // Автоматично изтичане на полици
             var now = DateTime.UtcNow;
             var toExpire = await _context.InsurancePolicies
                 .Where(p => p.UserId == user.Id && p.Status == PolicyStatus.Active && p.EndDate < now)
@@ -75,8 +78,14 @@ namespace InsuranceComparisonService.Controllers
         // POST /Policy/Buy
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Buy(int offerId, int? vehicleId, int driverAge,
-            int experienceYears, PaymentType paymentType, int durationMonths)
+        public async Task<IActionResult> Buy(
+            int offerId,
+            int? vehicleId,
+            int driverAge,
+            int experienceYears,
+            int accidentCount,
+            PaymentType paymentType,
+            int durationMonths)
         {
             var user = await _userManager.GetUserAsync(User);
             if (user == null) return Unauthorized();
@@ -84,18 +93,47 @@ namespace InsuranceComparisonService.Controllers
             var offer = await _repo.GetOfferByIdAsync(offerId);
             if (offer == null) return NotFound();
 
-            Vehicle? vehicle = null;
-            int vehicleYear = DateTime.Now.Year;
-            if (vehicleId.HasValue)
+            // Валидация на входни данни
+            if (driverAge < 16 || driverAge > 100)
             {
-                vehicle = await _context.Vehicles.FirstOrDefaultAsync(
-                    v => v.Id == vehicleId && v.UserId == user.Id);
-                if (vehicle != null) vehicleYear = vehicle.Year;
+                TempData["Error"] = "Невалидна възраст на водача.";
+                return RedirectToAction(nameof(Buy), new { id = offerId });
+            }
+            if (experienceYears < 0 || experienceYears > 80)
+            {
+                TempData["Error"] = "Невалиден шофьорски стаж.";
+                return RedirectToAction(nameof(Buy), new { id = offerId });
+            }
+            if (accidentCount < 0 || accidentCount > 20)
+            {
+                TempData["Error"] = "Невалиден брой ПТП.";
+                return RedirectToAction(nameof(Buy), new { id = offerId });
+            }
+            if (durationMonths < 1 || durationMonths > 24)
+            {
+                TempData["Error"] = "Невалиден период (1–24 месеца).";
+                return RedirectToAction(nameof(Buy), new { id = offerId });
             }
 
-            decimal calculatedPrice = _calculator.Calculate(offer, driverAge, experienceYears, vehicleYear);
+            Vehicle? vehicle = null;
+            int vehicleYear = DateTime.Now.Year;
+            VehicleCategory vehicleCategory = VehicleCategory.Car;
 
-            // Monthly means price per month * duration
+            if (vehicleId.HasValue)
+            {
+                vehicle = await _context.Vehicles
+                    .FirstOrDefaultAsync(v => v.Id == vehicleId && v.UserId == user.Id);
+                if (vehicle != null)
+                {
+                    vehicleYear = vehicle.Year;
+                    vehicleCategory = vehicle.Category;
+                }
+            }
+
+            decimal calculatedPrice = _calculator.Calculate(
+                offer, driverAge, experienceYears, vehicleYear, accidentCount, vehicleCategory);
+
+            // При разсрочено плащане — цена за целия период
             decimal finalPrice = paymentType == PaymentType.Monthly
                 ? Math.Round(calculatedPrice / 12 * durationMonths, 2)
                 : calculatedPrice;
@@ -115,6 +153,13 @@ namespace InsuranceComparisonService.Controllers
 
             _context.InsurancePolicies.Add(policy);
             await _context.SaveChangesAsync();
+
+            // Email потвърждение
+            if (!string.IsNullOrEmpty(user.Email))
+            {
+                await _emailService.SendPolicyConfirmationAsync(
+                    user.Email, policy.PolicyNumber, finalPrice, policy.EndDate);
+            }
 
             TempData["Success"] = $"Полица {policy.PolicyNumber} беше създадена успешно!";
             return RedirectToAction(nameof(Index));
@@ -141,9 +186,26 @@ namespace InsuranceComparisonService.Controllers
             return RedirectToAction(nameof(Index));
         }
 
+        // GET /Policy/Details/5
+        public async Task<IActionResult> Details(int id)
+        {
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null) return Unauthorized();
+
+            var policy = await _context.InsurancePolicies
+                .Include(p => p.Offer).ThenInclude(o => o!.Company)
+                .Include(p => p.Vehicle)
+                .FirstOrDefaultAsync(p => p.Id == id && p.UserId == user.Id);
+
+            if (policy == null) return NotFound();
+            return View(policy);
+        }
+
         private static string GeneratePolicyNumber()
         {
-            return "POL-" + DateTime.Now.Year + "-" + new Random().Next(100000, 999999).ToString();
+            // Използваме Guid за уникалност — избягваме колизии при едновременни заявки
+            var suffix = Guid.NewGuid().ToString("N")[..6].ToUpper();
+            return $"POL-{DateTime.Now.Year}-{suffix}";
         }
     }
 }

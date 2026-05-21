@@ -1,4 +1,3 @@
-using Microsoft.EntityFrameworkCore.Diagnostics;
 using InsuranceComparisonService.Data;
 using InsuranceComparisonService.Middleware;
 using InsuranceComparisonService.Models;
@@ -7,25 +6,24 @@ using InsuranceComparisonService.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.OpenApi.Models;
 using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Bind port for Render
+// ── Порт за Render ────────────────────────────────────────────────────────────
 var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
 builder.WebHost.UseUrls($"http://*:{port}");
 
-// Database
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
+// ── База данни ────────────────────────────────────────────────────────────────
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
                        ?? Environment.GetEnvironmentVariable("DATABASE_URL");
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
-    if (!string.IsNullOrEmpty(connectionString) && 
-        (connectionString.Contains("Host=") || 
-         connectionString.Contains("Server=") || 
-         connectionString.Contains("Database=") || 
-         connectionString.Contains("postgres://") || 
+    if (!string.IsNullOrEmpty(connectionString) &&
+        (connectionString.Contains("Host=") ||
+         connectionString.Contains("postgres://") ||
          connectionString.Contains("postgresql://")))
     {
         options.UseNpgsql(ConvertPostgresUrlToConnectionString(connectionString));
@@ -36,7 +34,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
     }
 });
 
-// Identity
+// ── Identity ──────────────────────────────────────────────────────────────────
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 {
     options.SignIn.RequireConfirmedAccount = false;
@@ -51,16 +49,19 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 .AddEntityFrameworkStores<ApplicationDbContext>()
 .AddDefaultTokenProviders();
 
-// Repository & Services
+// ── Услуги ────────────────────────────────────────────────────────────────────
 builder.Services.AddScoped<IInsuranceRepository, InsuranceRepository>();
 builder.Services.AddScoped<PriceCalculatorService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 
-// Response Caching & Memory Cache
+// Фонова услуга за email напомняния
+builder.Services.AddHostedService<PolicyExpiryReminderService>();
+
+// ── Кеширане ──────────────────────────────────────────────────────────────────
 builder.Services.AddResponseCaching();
 builder.Services.AddMemoryCache();
 
-// Rate Limiting
+// ── Rate Limiting ─────────────────────────────────────────────────────────────
 builder.Services.AddRateLimiter(options =>
 {
     options.AddFixedWindowLimiter("global", limiterOptions =>
@@ -80,12 +81,30 @@ builder.Services.AddRateLimiter(options =>
     options.RejectionStatusCode = 429;
 });
 
-// Health Checks
+// ── Health Checks ─────────────────────────────────────────────────────────────
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<ApplicationDbContext>("database");
 
+// ── Swagger ───────────────────────────────────────────────────────────────────
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "Застрахователна Платформа API",
+        Version = "v1",
+        Description = "API за сравнение на застрахователни оферти и управление на полици",
+        Contact = new OpenApiContact
+        {
+            Name = "Insurance Comparison Service",
+            Email = "support@insurance.bg"
+        }
+    });
+});
+
 builder.Services.AddControllersWithViews();
 
+// ── Cookie настройки ──────────────────────────────────────────────────────────
 builder.Services.ConfigureApplicationCookie(options =>
 {
     options.LoginPath = "/Account/Login";
@@ -93,30 +112,34 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.ExpireTimeSpan = TimeSpan.FromDays(7);
     options.SlidingExpiration = true;
     options.Cookie.HttpOnly = true;
-    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest; // SameAsRequest за dev+prod
     options.Cookie.SameSite = SameSiteMode.Strict;
 });
 
 var app = builder.Build();
 
-// Apply migrations and seed
+// ── Инициализация на база данни ───────────────────────────────────────────────
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
     try
     {
         var db = services.GetRequiredService<ApplicationDbContext>();
-        db.Database.EnsureCreated();
+
+        // Прилага всички pending миграции (или създава базата ако не съществува)
+        db.Database.Migrate();
 
         var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
         var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
 
+        // Роли
         foreach (var role in new[] { "SuperAdmin", "Admin", "User" })
         {
             if (!await roleManager.RoleExistsAsync(role))
                 await roleManager.CreateAsync(new IdentityRole(role));
         }
 
+        // Администратор
         var adminEmail = "admin@insurance.bg";
         if (await userManager.FindByEmailAsync(adminEmail) == null)
         {
@@ -130,6 +153,7 @@ using (var scope = app.Services.CreateScope())
             if (result.Succeeded) await userManager.AddToRoleAsync(admin, "Admin");
         }
 
+        // Супер Администратор
         var superAdminEmail = "superadmin@insurance.bg";
         if (await userManager.FindByEmailAsync(superAdminEmail) == null)
         {
@@ -150,9 +174,20 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
+// ── Middleware pipeline ───────────────────────────────────────────────────────
 app.UseGlobalExceptionHandler();
 
-if (!app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment())
+{
+    // Swagger само в development среда
+    app.UseSwagger();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Insurance API v1");
+        c.RoutePrefix = "swagger";
+    });
+}
+else
 {
     app.UseHsts();
 }
@@ -173,6 +208,7 @@ app.UseResponseCaching();
 app.UseAuthentication();
 app.UseAuthorization();
 
+// ── Security headers ──────────────────────────────────────────────────────────
 app.Use(async (context, next) =>
 {
     context.Response.Headers["X-Content-Type-Options"] = "nosniff";
@@ -194,6 +230,7 @@ app.MapControllerRoute(
 
 app.Run();
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
 string ConvertPostgresUrlToConnectionString(string url)
 {
     if (string.IsNullOrWhiteSpace(url)) return url;
@@ -204,8 +241,8 @@ string ConvertPostgresUrlToConnectionString(string url)
     var username = userInfo[0];
     var password = userInfo.Length > 1 ? userInfo[1] : "";
     var host = uri.Host;
-    var port = uri.Port;
+    var dbPort = uri.Port;
     var database = uri.AbsolutePath.TrimStart('/');
 
-    return $"Host={host};Port={port};Database={database};Username={username};Password={password};SSL Mode=Require;Trust Server Certificate=true;";
+    return $"Host={host};Port={dbPort};Database={database};Username={username};Password={password};SSL Mode=Require;Trust Server Certificate=true;";
 }

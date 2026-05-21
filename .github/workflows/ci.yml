@@ -1,0 +1,40 @@
+name: CI — Build & Test
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout код
+        uses: actions/checkout@v4
+
+      - name: Настройка на .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Възстановяване на пакети
+        run: dotnet restore InsuranceComparison.sln
+
+      - name: Компилация (Release)
+        run: dotnet build InsuranceComparison.sln --configuration Release --no-restore
+
+      - name: Изпълнение на тестове
+        run: dotnet test InsuranceComparisonService.Tests/InsuranceComparisonService.Tests.csproj --configuration Release --no-build --verbosity normal
+
+      - name: Публикуване на артефакт
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        run: dotnet publish InsuranceComparisonService/InsuranceComparisonService.csproj -c Release -o ./publish
+
+      - name: Качване на артефакт
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        uses: actions/upload-artifact@v4
+        with:
+          name: insurance-app
+          path: ./publish
