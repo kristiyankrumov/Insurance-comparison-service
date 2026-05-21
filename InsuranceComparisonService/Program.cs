@@ -19,6 +19,27 @@ builder.WebHost.UseUrls($"http://*:{port}");
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
                        ?? Environment.GetEnvironmentVariable("DATABASE_URL");
 
+// Ensure SQLite directory exists
+if (string.IsNullOrEmpty(connectionString) || 
+    (!connectionString.Contains("Host=") && 
+     !connectionString.Contains("postgres://") && 
+     !connectionString.Contains("postgresql://")))
+{
+    var sqlite_conn = connectionString ?? "Data Source=insurance.db";
+    if (sqlite_conn.Contains("Data Source="))
+    {
+        var dbPath = sqlite_conn.Split("Data Source=")[1].Split(";")[0];
+        if (!dbPath.StartsWith(":"))
+        {
+            var dbDir = Path.GetDirectoryName(dbPath);
+            if (!string.IsNullOrEmpty(dbDir) && !Directory.Exists(dbDir))
+            {
+                Directory.CreateDirectory(dbDir);
+            }
+        }
+    }
+}
+
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
     if (!string.IsNullOrEmpty(connectionString) &&

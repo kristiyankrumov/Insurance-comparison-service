@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  insurance-app:
+    build: .
+    container_name: insurance-comparison-service
+    ports:
+      - "8080:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Data Source=/app/data/insurance.db
+    volumes:
+      - insurance-db-volume:/app/data
+    networks:
+      - insurance-network
+    restart: unless-stopped
+
+volumes:
+  insurance-db-volume:
+    driver: local
+
+networks:
+  insurance-network:
+    driver: bridge
