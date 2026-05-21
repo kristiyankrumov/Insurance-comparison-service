@@ -16,14 +16,18 @@ var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
 builder.WebHost.UseUrls($"http://*:{port}");
 
 // ── База данни ────────────────────────────────────────────────────────────────
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-                       ?? Environment.GetEnvironmentVariable("DATABASE_URL");
+// PRIORITY: Environment variable (Render) > appsettings.json > default SQLite
+var connectionString = Environment.GetEnvironmentVariable("DATABASE_URL")
+                       ?? builder.Configuration.GetConnectionString("DefaultConnection")
+                       ?? "Data Source=insurance.db";
+
+Console.WriteLine($"[DB] Connection string source: {(Environment.GetEnvironmentVariable("DATABASE_URL") != null ? "DATABASE_URL env var" : "config file")}");
 
 var isPostgres = !string.IsNullOrEmpty(connectionString) &&
                  (connectionString.Contains("Host=") ||
                   connectionString.Contains("postgres://") ||
                   connectionString.Contains("postgresql://") ||
-                  connectionString.Contains("@") && connectionString.Contains(":") && !connectionString.StartsWith("Data Source="));
+                  (connectionString.Contains("@") && connectionString.Contains(":") && !connectionString.StartsWith("Data Source=")));
 
 // Log database type
 Console.WriteLine($"[DB] Using {(isPostgres ? "PostgreSQL" : "SQLite")} database");
